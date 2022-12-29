@@ -11,7 +11,7 @@ class Interface:
         self.uart =  UART(1,baudrate)
         self.uart.init(baudrate, bits=8, parity=None, stop=1,timeout=10,rx=26, tx=27) # init with given parameters
         self.modbusClient = modbus.Modbus()
-        self.swriter = asyncio.StreamWriter(self.uart, {})
+        #self.swriter = asyncio.StreamWriter(self.uart, {})
         #self.sreader = asyncio.StreamReader(self.uart, {})
 
     async def __aenter__(self):
@@ -26,8 +26,8 @@ class Interface:
     async def writeRegister(self,reg,data,ID):
 
         writeRegs = self.modbusClient.write_regs(reg, data,ID)
-        self.swriter.write(writeRegs)
-        await self.swriter.drain()
+        self.uart.write(writeRegs)
+        self.uart.flush()
         self.DE.on()
             
         if ID == 100:
@@ -47,8 +47,8 @@ class Interface:
 
     async def readRegister(self,reg,length,ID):
         readRegs = self.modbusClient.read_regs(reg, length,ID)
-        self.swriter.write(readRegs)
-        await self.swriter.drain()
+        self.uart.write(readRegs)
+        self.uart.flush()
         self.DE.on()
             
         if ID == 100:
