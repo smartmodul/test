@@ -9,13 +9,12 @@ import ulogging as  logging
 
 class ModbusSlave:
     
-    def __init__(self,baudrate,wattmeter, evse, rfid, config, debug=True):
+    def __init__(self,baudrate,wattmeter, evse, rfid, config, debug=False):
         self.DE = Pin(15, Pin.OUT) 
         self.uart =  UART(2,baudrate)
-        self.uart.init(baudrate, bits=8, parity=None,timeout=1, stop=1) # init with given parameters
+        self.uart.init(baudrate, bits=8, parity=None, stop=1) # init with given parameters
         self.modbusClient = modbus.Modbus()
         self.swriter = asyncio.StreamWriter(self.uart, {})
-        self.sreader = asyncio.StreamReader(self.uart)
         self.wattmeter = wattmeter
         self.evse = evse
         self.rfid = rfid
@@ -23,12 +22,21 @@ class ModbusSlave:
         if debug:        
             logging.basicConfig(logging.DEBUG)
         self.LOGGER = logging.getLogger(__name__)
+        
+        poll = select.poll()
+        poll.register(self.uart, select.POLLIN)
+        poll.poll(1)
         #self.LOGGER.setLevel('DEBUG')
 
     async def run(self):
+        print("Start reading")
         while True:
             self.DE.on()
-            res = await self.sreader.read(-1)
+            res = []
+            if self.uart.any():
+                res = self.uart.read()
+            else:
+                await asyncio.sleep_ms(10)
             try:
                 if(len(res)<8):
                     continue
