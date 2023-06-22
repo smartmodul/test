@@ -1,188 +1,202 @@
 import ujson as json
 import time
-import uasyncio as asyncio
-from machine import Pin,UART
+from machine import Pin, UART
 from gc import collect, mem_free
 from collections import OrderedDict
+import ulogging
+
 
 class Wattmeter:
-     
-    def __init__(self,commInterface,config):
 
-        self.relay  = Pin(25, Pin.OUT)
+    def __init__(self, comm_interface, config):
+
+        self.relay = Pin(25, Pin.OUT)
         self.relay.off()
-        self.wattmeterInterface = commInterface
-        self.dataLayer = DataLayer()
-        self.fileHandler = fileHandler()
-        self.DAILY_CONSUMPTION = 'daily_consumption.dat'
-        self.timeInit = False
-        self.timeOfset = False
-        self.lastMinute =  0
-        self.lastHour = 0
-        self.lastDay =  0
-        self.lastMonth = 0
-        self.lastYear = 0
-        self.test = 0
-        self.startUpTime = 0
+        self.wattmeter_interface = comm_interface
+        self.data_layer = DataLayer()
+        self.file_handler = FileHandler()
+        self.daily_consumption: str = 'daily_consumption.dat'
+        self.time_init: bool = False
+        self.time_offset: bool = False
+        self.last_minute: int = 0
+        self.last_hour: int = 0
+        self.last_day: int = 0
+        self.last_month: int = 0
+        self.last_year: int = 0
+        self.start_up_time: int = 0
         self.config = config
-        self.dataLayer.data['ID'] = self.config.flash['ID'] 
-        self.WATTMETER_ID = 100
+        self.data_layer.data['ID'] = self.config.flash['ID']
+        self.wattmeter_id: int = 100
 
-        self.tst = 0
+        self.logger = ulogging.getLogger(__name__)
+        if int(self.config.flash['sw,TESTING SOFTWARE']) == 1:
+            self.logger.setLevel(ulogging.DEBUG)
+        else:
+            self.logger.setLevel(ulogging.INFO)
 
-    async def wattmeterHandler(self):
-        #Read data from wattmeter
-        if (self.timeOfset == False)and(self.timeInit == True):
-            self.startUpTime = time.time()
-            self.lastMinute =  int(time.localtime()[4])
-            self.lastDay =  int(time.localtime()[2])
-            self.lastMonth = int(time.localtime()[1])
-            self.lastYear =  int(time.localtime()[0])
-            self.dataLayer.data['D'] = self.fileHandler.readData(self.DAILY_CONSUMPTION)
-            self.dataLayer.data["M"] = self.fileHandler.getMonthlyEnergy(self.DAILY_CONSUMPTION)
-            self.timeOfset = True
-            
-        self.dataLayer.data['RUN_TIME'] = time.time() - self.startUpTime
-        curentYear = str(time.localtime()[0])[-2:] 
-        self.dataLayer.data['WATTMETER_TIME'] = ("{0:02}.{1:02}.{2}  {3:02}:{4:02}:{5:02}".format(time.localtime()[2],time.localtime()[1],curentYear,time.localtime()[3],time.localtime()[4],time.localtime()[5]))
-        status = await self.__readWattmeter_data(6000,22)
-        #Check if time-sync puls must be send
-        if (self.lastMinute is not int(time.localtime()[4]))and(self.timeInit == True):
-            
-            if len(self.dataLayer.data["Pm"])<61:
-                self.dataLayer.data["Pm"].append(self.dataLayer.data['Em']*6)#self.dataLayer.data["P1"])
+    async def wattmeter_handler(self):
+        if (self.time_offset is False) and self.time_init:
+            self.start_up_time = time.time()
+            self.last_minute = int(time.localtime()[4])
+            self.last_day = int(time.localtime()[2])
+            self.last_month = int(time.localtime()[1])
+            self.last_year = int(time.localtime()[0])
+            self.data_layer.data['D'] = self.file_handler.read_data(self.daily_consumption)
+            self.data_layer.data["M"] = self.file_handler.get_monthly_energy(self.daily_consumption)
+            self.time_offset = True
+
+        self.data_layer.data['RUN_TIME'] = time.time() - self.start_up_time
+        current_year: str = str(time.localtime()[0])[-2:]
+        self.data_layer.data['WATTMETER_TIME'] = (
+            "{0:02}.{1:02}.{2}  {3:02}:{4:02}:{5:02}".format(time.localtime()[2], time.localtime()[1], current_year,
+                                                             time.localtime()[3], time.localtime()[4],
+                                                             time.localtime()[5]))
+
+        await self.__read_wattmeter_data(6000, 22)
+
+        if (self.last_minute is not int(time.localtime()[4])) and self.time_init:
+
+            if len(self.data_layer.data["Pm"]) < 61:
+                self.data_layer.data["Pm"].append(self.data_layer.data['Em'] * 6)
             else:
-                self.dataLayer.data["Pm"] = self.dataLayer.data["Pm"][1:]
-                self.dataLayer.data["Pm"].append(self.dataLayer.data['Em']*6)#self.dataLayer.data["P1"])
-            
-            self.dataLayer.data["Pm"][0] = len(self.dataLayer.data["Pm"])
-            async with self.wattmeterInterface as w:
-                await w.writeRegister(100,[1],self.WATTMETER_ID)
-            self.lastMinute = int(time.localtime()[4]) 
+                self.data_layer.data["Pm"] = self.data_layer.data["Pm"][1:]
+                self.data_layer.data["Pm"].append(self.data_layer.data['Em'] * 6)
 
-        if self.timeInit:
-            if self.lastHour is not int(time.localtime()[3]):
-                async with self.wattmeterInterface as w:
-                    await w.writeRegister(101,[1],self.WATTMETER_ID)
-                self.lastHour = int(time.localtime()[3])
-                if len(self.dataLayer.data["Es"])<97:
-                    self.dataLayer.data["Es"].append(self.lastHour)
-                    self.dataLayer.data["Es"].append(self.dataLayer.data['Eh'])
-                    self.dataLayer.data["Es"].append(self.dataLayer.data['En'])
-                    self.dataLayer.data["Es"].append(self.dataLayer.data['A'])
+            self.data_layer.data["Pm"][0] = len(self.data_layer.data["Pm"])
+            async with self.wattmeter_interface as w:
+                await w.write_register(100, [1], self.wattmeter_id)
+            self.last_minute = int(time.localtime()[4])
+
+        if self.time_init:
+            if self.last_hour is not int(time.localtime()[3]):
+                async with self.wattmeter_interface as w:
+                    await w.write_register(101, [1], self.wattmeter_id)
+                self.last_hour = int(time.localtime()[3])
+                if len(self.data_layer.data["Es"]) < 97:
+                    self.data_layer.data["Es"].append(self.last_hour)
+                    self.data_layer.data["Es"].append(self.data_layer.data['Eh'])
+                    self.data_layer.data["Es"].append(self.data_layer.data['En'])
+                    self.data_layer.data["Es"].append(self.data_layer.data['A'])
                 else:
-                    self.dataLayer.data["Es"] = self.dataLayer.data["Es"][4:]
-                    self.dataLayer.data["Es"].append(self.lastHour)
-                    self.dataLayer.data["Es"].append(self.dataLayer.data['Eh'])
-                    self.dataLayer.data["Es"].append(self.dataLayer.data['En'])
-                    self.dataLayer.data["Es"].append(self.dataLayer.data['A'])
-            
-                self.dataLayer.data["Es"][0] = len(self.dataLayer.data["Es"])
-            
+                    self.data_layer.data["Es"] = self.data_layer.data["Es"][4:]
+                    self.data_layer.data["Es"].append(self.last_hour)
+                    self.data_layer.data["Es"].append(self.data_layer.data['Eh'])
+                    self.data_layer.data["Es"].append(self.data_layer.data['En'])
+                    self.data_layer.data["Es"].append(self.data_layer.data['A'])
+
+                self.data_layer.data["Es"][0] = len(self.data_layer.data["Es"])
+
             else:
-                if len(self.dataLayer.data["Es"])<97:
-                    self.dataLayer.data["Es"][len(self.dataLayer.data["Es"])-3]= self.dataLayer.data['Eh']
-                    self.dataLayer.data["Es"][len(self.dataLayer.data["Es"])-2]= self.dataLayer.data['En']
-                    self.dataLayer.data["Es"][len(self.dataLayer.data["Es"])-1]=  self.dataLayer.data['A']
+                if len(self.data_layer.data["Es"]) < 97:
+                    self.data_layer.data["Es"][len(self.data_layer.data["Es"]) - 3] = self.data_layer.data['Eh']
+                    self.data_layer.data["Es"][len(self.data_layer.data["Es"]) - 2] = self.data_layer.data['En']
+                    self.data_layer.data["Es"][len(self.data_layer.data["Es"]) - 1] = self.data_layer.data['A']
                 else:
-                    self.dataLayer.data["Es"][94]= self.dataLayer.data['Eh']
-                    self.dataLayer.data["Es"][95]= self.dataLayer.data['En']
-                    self.dataLayer.data["Es"][96]=  self.dataLayer.data['A']
-        
-        if (self.lastDay is not int(time.localtime()[2]))and self.timeInit and self.timeOfset:
+                    self.data_layer.data["Es"][94] = self.data_layer.data['Eh']
+                    self.data_layer.data["Es"][95] = self.data_layer.data['En']
+                    self.data_layer.data["Es"][96] = self.data_layer.data['A']
 
-            day = {("{0:02}/{1:02}/{2}".format(self.lastMonth,self.lastDay ,str(self.lastYear)[-2:] )) : [self.dataLayer.data["E1dP"] + self.dataLayer.data["E2dP"]+self.dataLayer.data["E3dP"], self.dataLayer.data["E1dN"] + self.dataLayer.data["E2dN"]+self.dataLayer.data["E3dN"]]}
-            async with self.wattmeterInterface as w:
-                await w.writeRegister(102,[1],self.WATTMETER_ID)
-            
-            self.lastYear = int(time.localtime()[0])
-            self.lastMonth = int(time.localtime()[1])
-            self.lastDay = int(time.localtime()[2])
-            self.fileHandler.writeData(self.DAILY_CONSUMPTION, day)
-            self.dataLayer.data["D"] =  self.fileHandler.readData(self.DAILY_CONSUMPTION,31)
-            self.dataLayer.data["M"] = self.fileHandler.getMonthlyEnergy(self.DAILY_CONSUMPTION)
+        if (self.last_day != int(time.localtime()[2])) and self.time_init and self.time_offset:
+            day: dict = {("{0:02}/{1:02}/{2}".format(self.last_month, self.last_day, str(self.last_year)[-2:])): [
+                self.data_layer.data["E1dP"] + self.data_layer.data["E2dP"] + self.data_layer.data["E3dP"],
+                self.data_layer.data["E1dN"] + self.data_layer.data["E2dN"] + self.data_layer.data["E3dN"]]}
+            async with self.wattmeter_interface as w:
+                await w.write_register(102, [1], self.wattmeter_id)
 
-    async def __readWattmeter_data(self,reg,length):
-        async with self.wattmeterInterface as w:
-                receiveData =  await w.readRegister(reg,length,self.WATTMETER_ID)
+            self.last_year = int(time.localtime()[0])
+            self.last_month = int(time.localtime()[1])
+            self.last_day = int(time.localtime()[2])
+            self.file_handler.write_data(self.daily_consumption, day)
+            self.data_layer.data["D"] = self.file_handler.read_data(self.daily_consumption)
+            self.data_layer.data["M"] = self.file_handler.get_monthly_energy(self.daily_consumption)
+
+    async def __read_wattmeter_data(self, reg, length):
+        async with self.wattmeter_interface as w:
+            receive_data = await w.read_register(reg, length, self.wattmeter_id)
         try:
-            if (receiveData != "Null") and (reg == 6000):
-                self.dataLayer.data['I1'] =     int(((receiveData[0]) << 8) | (receiveData[1]))
-                self.dataLayer.data['I2'] =     int(((receiveData[2]) << 8) | (receiveData[3]))
-                self.dataLayer.data['I3'] =     int(((receiveData[4]) << 8) | (receiveData[5]))
-                self.dataLayer.data['U1'] =     int(((receiveData[6]) << 8) | (receiveData[7]))
-                self.dataLayer.data['U2'] =     int(((receiveData[8]) << 8) | (receiveData[9]))
-                self.dataLayer.data['U3'] =     int(((receiveData[10]) << 8) | (receiveData[11]))
-                self.dataLayer.data['P1'] =     int(((receiveData[12]) << 8) | (receiveData[13]))
-                self.dataLayer.data['P2'] =     int(((receiveData[14]) << 8) | (receiveData[15]))
-                self.dataLayer.data['P3'] =     int(((receiveData[16]) << 8) | (receiveData[17]))
-                a = (int)(receiveData[18]<< 8)  | receiveData[19]
-                if a == 1 and  '1'== self.config.flash['sw,AC IN ACTIVE: HIGH']:
-                    self.dataLayer.data['A'] = 1
-                elif a == 0 and  '0'== self.config.flash['sw,AC IN ACTIVE: HIGH']:
-                    self.dataLayer.data['A'] = 1
+            if (receive_data != "Null") and (reg == 6000):
+                self.data_layer.data['I1'] = int(((receive_data[0]) << 8) | (receive_data[1]))
+                self.data_layer.data['I2'] = int(((receive_data[2]) << 8) | (receive_data[3]))
+                self.data_layer.data['I3'] = int(((receive_data[4]) << 8) | (receive_data[5]))
+                self.data_layer.data['U1'] = int(((receive_data[6]) << 8) | (receive_data[7]))
+                self.data_layer.data['U2'] = int(((receive_data[8]) << 8) | (receive_data[9]))
+                self.data_layer.data['U3'] = int(((receive_data[10]) << 8) | (receive_data[11]))
+                self.data_layer.data['P1'] = int(((receive_data[12]) << 8) | (receive_data[13]))
+                self.data_layer.data['P2'] = int(((receive_data[14]) << 8) | (receive_data[15]))
+                self.data_layer.data['P3'] = int(((receive_data[16]) << 8) | (receive_data[17]))
+                hdo = int((receive_data[18] << 8) | receive_data[19])
+                if hdo == 1 and '1' == self.config.flash['sw,AC IN ACTIVE: HIGH']:
+                    self.data_layer.data['A'] = 1
+                elif hdo == 0 and '0' == self.config.flash['sw,AC IN ACTIVE: HIGH']:
+                    self.data_layer.data['A'] = 1
                 else:
-                    self.dataLayer.data['A'] = 0           
-                #2502
-                self.dataLayer.data['Em'] = int(((receiveData[20]) << 8) | receiveData[21]) + int(((receiveData[22])<< 8)|receiveData[23]) + int((receiveData[24] << 8) |receiveData[25])
-                #2902
-                self.dataLayer.data["EpDP"]= int(((receiveData[26]) << 8) | receiveData[27]) + int(((receiveData[28]) << 8) | receiveData[29]) + int(((receiveData[30])<< 8) | receiveData[31])
-                #4000
-                self.dataLayer.data["E1tP"]= int((receiveData[34] << 24) | (receiveData[35] << 16) | (receiveData[32] << 8) | receiveData[33])
-                self.dataLayer.data["E2tP"]= int((receiveData[38] << 24) | (receiveData[39] << 16) | (receiveData[36] << 8) | receiveData[37])
-                self.dataLayer.data["E3tP"]= int((receiveData[42] << 24) | (receiveData[43] << 16) | (receiveData[40] << 8) | receiveData[41])
+                    self.data_layer.data['A'] = 0
+                    # 2502
+                self.data_layer.data['Em'] = int(((receive_data[20]) << 8) | receive_data[21]) + int(
+                    ((receive_data[22]) << 8) | receive_data[23]) + int((receive_data[24] << 8) | receive_data[25])
+                # 2902
+                self.data_layer.data["EpDP"] = int(((receive_data[26]) << 8) | receive_data[27]) + int(
+                    ((receive_data[28]) << 8) | receive_data[29]) + int(((receive_data[30]) << 8) | receive_data[31])
+                # 4000
+                self.data_layer.data["E1tP"] = int(
+                    (receive_data[34] << 24) | (receive_data[35] << 16) | (receive_data[32] << 8) | receive_data[33])
+                self.data_layer.data["E2tP"] = int(
+                    (receive_data[38] << 24) | (receive_data[39] << 16) | (receive_data[36] << 8) | receive_data[37])
+                self.data_layer.data["E3tP"] = int(
+                    (receive_data[42] << 24) | (receive_data[43] << 16) | (receive_data[40] << 8) | receive_data[41])
                 return 0
 
-            else:   
+            else:
                 return 1
-            
+
         except Exception as e:
+            self.logger.debug(e)
             return -1
-        
-               
+
+
 class DataLayer:
     def __str__(self):
-        return json.dumps(self.data)           
+        return json.dumps(self.data)
 
     def __init__(self):
         self.data = OrderedDict()
-        self.data['I1'] = 0              #I1
-        self.data['I2'] = 0              #I2
-        self.data['I3'] = 0              #I3
+        self.data['I1'] = 0  # I1
+        self.data['I2'] = 0  # I2
+        self.data['I3'] = 0  # I3
         self.data['U1'] = 0
         self.data['U2'] = 0
         self.data['U3'] = 0
         self.data['P1'] = 0
         self.data['P2'] = 0
         self.data['P3'] = 0
-        self.data['W1'] = 0           #positive power peak L1
-        self.data['W2'] = 0           #positive power peak L2
-        self.data['W3'] = 0           #positive power peak L3
-        self.data['Em'] = 0            #Pavg per minute
-        self.data['En'] = 0            #Pavg per minute
-        self.data['Eh'] = 0             #positive hour energy
-        self.data['A'] = 0                #AC_IN
+        self.data['W1'] = 0  # positive power peak L1
+        self.data['W2'] = 0  # positive power peak L2
+        self.data['W3'] = 0  # positive power peak L3
+        self.data['Em'] = 0  # Pavg per minute
+        self.data['En'] = 0  # Pavg per minute
+        self.data['Eh'] = 0  # positive hour energy
+        self.data['A'] = 0  # AC_IN
         self.data["E1dP"] = 0
         self.data["E2dP"] = 0
         self.data["E3dP"] = 0
-        self.data["EpDP"] = 0#positive previous day Energy L1,L2,L3
-        self.data["E1tP"] = 0#positive total Energy L1
-        self.data["E2tP"] = 0#positive total Energy L1
-        self.data["E3tP"] = 0#positive total Energy L1
+        self.data["EpDP"] = 0  # positive previous day Energy L1,L2,L3
+        self.data["E1tP"] = 0  # positive total Energy L1
+        self.data["E2tP"] = 0  # positive total Energy L1
+        self.data["E3tP"] = 0  # positive total Energy L1
         self.data['ID'] = 0
-        self.data["Pm"] = [0]                               #minute power
-        self.data["Es"] = [0]                                 #Hour energy
-        self.data['D'] = None                             #Daily energy
-        self.data['M'] = None                            #Monthly energy
+        self.data["Pm"] = [0]  # minute power
+        self.data["Es"] = [0]  # Hour energy
+        self.data['D'] = None  # Daily energy
+        self.data['M'] = None  # Monthly energy
         self.data['RUN_TIME'] = 0
         self.data['WATTMETER_TIME'] = 0
-  
-class fileHandler:
-                
-    def readData(self,file,length=None):
+
+
+class FileHandler:
+
+    def read_data(self, file):
         data = []
         try:
-            #b = mem_free()
             csv_gen = self.csv_reader(file)
             row_count = 0
             data = []
@@ -193,67 +207,71 @@ class fileHandler:
             csv_gen = self.csv_reader(file)
             cnt = 0
             for i in csv_gen:
-                cnt+=1
-                if cnt>row_count-31:
-                    data.append(i.replace("\n",""))
+                cnt += 1
+                if cnt > row_count - 31:
+                    data.append(i.replace("\n", ""))
                 collect()
-            #print("Mem free before:{}; after:{}; rozdil:{} ".format(b,mem_free(),b-mem_free()))
             return data
         except Exception as e:
-            return [] 
-    
-    def csv_reader(self,file_name):
+            return []
+
+    def csv_reader(self, file_name):
         for row in open(file_name, "r"):
             try:
                 yield row
             except StopIteration:
                 return
 
-    def getMonthlyEnergy(self,file):
+    def get_monthly_energy(self, file):
         energy = []
-        lastMonth = 0
-        lastYear = 0
-        positiveEnergy = 0
-        negativeEnergy = 0
+        last_month = 0
+        last_year = 0
+        positive_energy = 0
+        negative_energy = 0
 
         try:
             csv_gen = self.csv_reader(file)
             for line in csv_gen:
-                line = line.replace("\n","").replace("/",":").replace("[","").replace("]","").replace(",",":").replace(" ","").split(":")
-                #print("0 - Mem free before:{}; after:{}; rozdil:{} ".format(b,mem_free(),b-mem_free()))
-                if lastMonth == 0:
-                    lastMonth = int(line[0])
-                    lastYear = int(line[2])
+                line = line.replace("\n", "").replace("/", ":").replace("[", "").replace("]", "").replace(",",
+                                                                                                          ":").replace(
+                    " ", "").split(":")
+                if last_month == 0:
+                    last_month = int(line[0])
+                    last_year = int(line[2])
 
-                if lastMonth != int(line[0]):
-                    if len(energy)<12:                 
-                        energy.append("{}/{}:[{},{}]".format(lastMonth,lastYear,positiveEnergy,negativeEnergy))
+                if last_month != int(line[0]):
+                    if len(energy) < 36:
+                        energy.append("{}/{}:[{},{}]".format(last_month, last_year, positive_energy, negative_energy))
                     else:
                         energy = energy[1:]
-                        energy.append("{}/{}:[{},{}]".format(lastMonth,lastYear,positiveEnergy,negativeEnergy))
-                    positiveEnergy = 0
-                    negativeEnergy = 0
-                    lastMonth = int(line[0])
-                    lastYear = int(line[2])
+                        energy.append("{}/{}:[{},{}]".format(last_month, last_year, positive_energy, negative_energy))
+                    positive_energy = 0
+                    negative_energy = 0
+                    last_month = int(line[0])
+                    last_year = int(line[2])
 
-                positiveEnergy += int(line[3])
-                negativeEnergy += int(line[4])
-                collect()                
+                positive_energy += int(line[3])
+                negative_energy += int(line[4])
+                collect()
 
-            if len(energy)<12:                 
-                energy.append("{}/{}:[{},{}]".format(lastMonth,lastYear,positiveEnergy,negativeEnergy))
+            if len(energy) < 36:
+                energy.append("{}/{}:[{},{}]".format(last_month, last_year, positive_energy, negative_energy))
             else:
                 energy = energy[1:]
-                energy.append("{}/{}:[{},{}]".format(lastMonth,lastYear,positiveEnergy,negativeEnergy))
-            return energy    
-                
-        except Exception as e:
-            print("Error: ",e)
+                energy.append("{}/{}:[{},{}]".format(last_month, last_year, positive_energy, negative_energy))
 
-    def writeData(self,file,data):
+            if energy is None:
+                return []
+
+            return energy
+
+        except Exception as e:
+            print("Error: ", e)
+
+    def write_data(self, file, data):
         lines = []
         for variable, value in data.items():
-            lines.append(("%s:%s\n" % (variable, value)).replace(" ",""))
-            
+            lines.append(("%s:%s\n" % (variable, value)).replace(" ", ""))
+
         with open(file, "a+") as f:
             f.write(''.join(lines))

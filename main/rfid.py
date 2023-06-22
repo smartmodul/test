@@ -25,7 +25,7 @@ class Rfid():
         
     async def __readRfid_data(self,reg,lenght): 
         async with self.rfidInterface as r:
-            receiveData =  await r.readRegister(reg,lenght,self.RFID_ID)
+            receiveData =  await r.read_register(reg, lenght, self.RFID_ID)
         try:
             if reg == 2000 and (receiveData != None):
                 self.dataLayer.data["CNT"] = int(((receiveData[0]) << 8)  | receiveData[1])
