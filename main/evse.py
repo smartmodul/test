@@ -51,9 +51,9 @@ class Evse:
                 if self.config.flash["sw,ENABLE BALANCING"] == '1' and self.inverter is not None:
                     current = self.balancing_evse_current()
                     if self.config.flash['in,SOC'] != '0':
-                        if self.inverter.data_layer["soc"] < int(self.config.flash['in,SOC']):
+                        if self.inverter.data_layer.data["soc"] < int(self.config.flash['in,SOC']):
                             self.__soc_lock = True
-                        if self.inverter.data_layer["soc"] > (int(self.config.flash['in,SOC']) + 10):
+                        if self.inverter.data_layer.data["soc"] > (int(self.config.flash['in,SOC']) + 10):
                             self.__soc_lock = False
                         if self.__soc_lock:
                             current = 0
