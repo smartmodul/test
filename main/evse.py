@@ -56,7 +56,7 @@ class Evse:
                         if self.inverter.data_layer.data["soc"] > (int(self.config.flash['in,SOC']) + 10):
                             self.__soc_lock = False
                         if self.__soc_lock:
-                            current = 0
+                            current = int(self.config.flash["in,MAX-CURRENT-FROM-GRID-A"])
                 self.logger.info(f"Set current: {current} A")
 
                 if self.config.flash["sw,RFID VERIFICATION"] == '0':
