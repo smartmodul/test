@@ -57,16 +57,21 @@ class Evse:
                             self.__soc_lock = False
                         if self.__soc_lock:
                             current = 0
+                self.logger.info(f"Set current: {current} A")
+
                 if self.config.flash["sw,RFID VERIFICATION"] == '0':
                     if self.config.flash["sw,WHEN AC IN: CHARGING"] == '1':
                         if self.wattmeter.data_layer.data["A"] == 1:
                             async with self.evse_interface as e:
+                                self.logger.info(f"---- EVSE current: {current} A")
                                 await e.write_register(1000, [current], modbus_id=1)
                         else:
                             async with self.evse_interface as e:
+                                self.logger.info(f"++++ EVSE current: {current} A")
                                 await e.write_register(1000, [0], modbus_id=1)
                     else:
                         async with self.evse_interface as e:
+                            self.logger.info(f"==== EVSE current: {current} A")
                             await e.write_register(1000, [current], modbus_id=1)
 
                 elif self.config.flash["sw,RFID VERIFICATION"] == '1':
@@ -179,7 +184,6 @@ class Evse:
 
         self.logger.info(f"I1: {i1}A, I2: {i2}A, I3: {i3}A, max_current: {max_current}, delta: {delta}, breaker:{breaker}")
 
-        self.logger.info(f"----Request_current: {self.__request_current}A")
         if (breaker * 0.5 + delta) < 0:
             self.__request_current = 0
             self.__regulation_delay = 1
