@@ -143,20 +143,20 @@ class Evse:
         max_current: int = 0
         delta: int = 0
 
-        if self.inverter.data_layer.data["I1"] > 32767:
-            i1 = self.inverter.data_layer.data["I1"] - 65535
+        if self.inverter.data_layer.data["i1"] > 32767:
+            i1 = self.inverter.data_layer.data["i1"] - 65535
         else:
-            i1 = self.inverter.data_layer.data["I1"]
+            i1 = self.inverter.data_layer.data["i1"]
 
-        if self.inverter.data_layer.data["I2"] > 32767:
-            i2 = self.inverter.data_layer.data["I2"] - 65535
+        if self.inverter.data_layer.data["i2"] > 32767:
+            i2 = self.inverter.data_layer.data["i2"] - 65535
         else:
-            i2 = self.inverter.data_layer.data["I2"]
+            i2 = self.inverter.data_layer.data["i2"]
 
-        if self.inverter.data_layer.data["I3"] > 32767:
-            i3 = self.inverter.data_layer.data["I3"] - 65535
+        if self.inverter.data_layer.data["i3"] > 32767:
+            i3 = self.inverter.data_layer.data["i3"] - 65535
         else:
-            i3 = self.inverter.data_layer.data["I3"]
+            i3 = self.inverter.data_layer.data["i3"]
 
         if (i1 > i2) and (i1 > i3):
             max_current = int(round(i1 / 100.0))
@@ -169,7 +169,7 @@ class Evse:
 
 
         delta: int = int(self.config.flash["in,MAX-CURRENT-FROM-GRID-A"]) - max_current
-        
+
         self.logger.info(f"I1: {i1}A, I2: {i2}A, I3: {i3}A, max_current: {max_current}, delta: {delta}")
 
         if max_current > int(self.config.flash["in,MAX-CURRENT-FROM-GRID-A"]):
