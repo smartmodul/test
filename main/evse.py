@@ -170,14 +170,16 @@ class Evse:
 
         delta: int = int(self.config.flash["in,MAX-CURRENT-FROM-GRID-A"]) - max_current
 
-        self.logger.info(f"I1: {i1}A, I2: {i2}A, I3: {i3}A, max_current: {max_current}, delta: {delta}")
-
         if max_current > int(self.config.flash["in,MAX-CURRENT-FROM-GRID-A"]):
             delta = int(self.config.flash["in,MAX-CURRENT-FROM-GRID-A"]) - max_current
 
         self.__cnt_current = self.__cnt_current + 1
         # Dle normy je zmena proudu EV nasledujici po zmene pracovni cyklu PWM maximalne 5s
         breaker = int(self.config.flash["in,MAX-CURRENT-FROM-GRID-A"])
+
+        self.logger.info(f"I1: {i1}A, I2: {i2}A, I3: {i3}A, max_current: {max_current}, delta: {delta}, breaker:{breaker}")
+
+        self.logger.info(f"----Request_current: {self.__request_current}A")
         if (breaker * 0.5 + delta) < 0:
             self.__request_current = 0
             self.__regulation_delay = 1
@@ -214,6 +216,8 @@ class Evse:
 
         if self.__request_current < 0:
             self.__request_current = 0
+
+        self.logger.info(f"====Request_current: {self.__request_current}A")
         return self.__request_current
 
 
