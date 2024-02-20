@@ -1,0 +1,27 @@
+{
+  "urls": [
+    ["__config__.mpy", "github:smartmodul/test/main/__config__.mpy"],
+    ["evse.mpy", "github:smartmodul/test/main/evse.mpy"],
+    ["history.mpy", "github:smartmodul/test/main/history.mpy"],
+    ["modbus_slave.mpy", "github:smartmodul/test/main/modbus_slave.mpy"],
+    ["taskHandler.mpy", "github:smartmodul/test/main/taskHandler.mpy"],
+    ["wattmeter.mpy", "github:lsmartmodul/test/main/wattmeter.mpy"],
+    ["webServerApp.mpy", "github:smartmodul/test/main/webServerApp.mpy"],
+    ["uart1.mpy", "github:smartmodul/test/main/uart1.mpy"],
+    ["rfid.mpy", "github:smartmodul/test/main/rfid.mpy"],
+    ["template/main_html.mpy", "github:smartmodul/test/main/template/main_html.mpy"],
+    ["template/datatable_html.mpy", "github:smartmodul/test/main/template/datatable_html.mpy"],
+    ["template/energyChart_html.mpy", "github:smartmodul/test/main/template/energyChart_html.mpy"],
+    ["template/overview_html.mpy", "github:smartmodul/test/main/template/overview_html.mpy"],
+    ["template/history_html.mpy", "github:smartmodul/test/main/template/history_html.mpy"],
+    ["template/rfid_html.mpy", "github:smartmodul/test/main/template/rfid_html.mpy"],
+    ["template/settings_html.mpy", "github:smartmodul/test/main/template/settings_html.mpy"],
+    ["inverters/base.mpy", "github:smartmodul/test/main/inverters/base.mpy"],
+    ["inverters/goodwe.mpy", "github:smartmodul/test/main/inverters/goodwe.mpy"],
+    ["inverters/huawei.mpy", "github:smartmodul/test/main/inverters/huawei.mpy"],
+    ["inverters/infigy.mpy", "github:smartmodul/test/main/inverters/infigy.mpy"],
+    ["inverters/solax.mpy", "github:smartmodul/test/main/inverters/solax.mpy"],
+    ["inverters/victron.mpy", "github:smartmodul/test/main/inverters/victron.mpy"],
+    ["inverters/rs485_tcp.mpy", "github:smartmodul/test/main/inverters/rs485_tcp.mpy"]
+  ]
+}
