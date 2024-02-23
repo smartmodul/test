@@ -33,7 +33,6 @@ class Evse:
             self.logger.setLevel(ulogging.INFO)
 
     async def evse_handler(self) -> None:
-        print("Charging mode: ", self.config.flash["chargeMode"])
         current: int = int(self.config.flash["in,EVSE-MAX-CURRENT-A"])
         hdo_current: int = current
 

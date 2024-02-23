@@ -28,11 +28,10 @@ class Rfid:
         self.rfid_interface = comm_interface
         self.config = config
         self.data_layer = DataLayer()
-        self.user = User()  # uzivatel ktereho edituje apka
-        self.last_loaded_user = User()  # aktualne nabijejici/autorizovany uzivatel
+        self.user = User()
+        self.last_loaded_user = User()
 
-        self.data_layer.users["DATABASE"] = [
-            self.user]  # databaze v RAM ta se zrcadli do FLASH "rfid.dat" pri kazde zmene
+        self.data_layer.users["DATABASE"] = [self.user]
 
         self.file_path: str = "rfid.dat"
         self.create_file(self.file_path)
@@ -75,19 +74,18 @@ class Rfid:
                 self.last_cnt_state = self.data_layer.data["CNT"]
                 new_ID = self.get_rfid_id()
                 user = self.get_user_from_ID(new_ID)
-                # pokud je nacetla karta jina nez posledne
                 if new_ID != self.last_id:
                     self.last_id = new_ID
-                    if user:  # pokud je ID v databazi poznamenej uzivatele pro tuto seassion
+                    if user:
                         self.last_loaded_user.user["NAME"] = user
                         self.last_loaded_user.user["ID"] = new_ID
                         self.status = Rfid.NEW
                     else:
-                        self.status = 0  # v databazi uzivatel neni
+                        self.status = 0
                 else:
-                    self.status = Rfid.NEW_SAME  # stejna karta jako posledne
+                    self.status = Rfid.NEW_SAME
 
-                if self.mode == Rfid.ADD_USER:  # k pridani se pouzije ID ze ctecky
+                if self.mode == Rfid.ADD_USER:
                     status: int = self.add_user(self.user.user["NAME"], new_ID)
                     if status == 1:
                         self.logger.debug(f"User: {self.user.user['NAME']} added")

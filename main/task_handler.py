@@ -4,7 +4,7 @@ import ulogging
 
 from ntptime import settime
 from asyn import Lock
-from gc import mem_free, collect
+from gc import mem_free, collect, mem_alloc
 from machine import Pin, WDT, RTC
 from main.web_server_app import WebServerApp
 from main import wattmeter
@@ -72,6 +72,7 @@ class TaskHandler:
         self.try_off_connections: int = 0
         self.wifi_manager.turnONAp()
         self.ap_timeout: int = 600
+        self.mem_logger_cnt: int = 0
 
         if int(self.config.flash['sw,EXTERNAL REGULATION']) == 1:
             self.modbus_slave = ModbusSlave(9600, self.wattmeter, self.evse, self.rfid, self.config)
@@ -83,9 +84,11 @@ class TaskHandler:
             self.logger.setLevel(ulogging.INFO)
 
     def mem_free(self) -> None:
-        before: int = mem_free()
+        self.mem_logger_cnt += 1
+        if self.mem_logger_cnt > 10:
+            self.logger.debug(f"RAM free: {mem_free()} alloc: {mem_alloc()}")
+            self.mem_logger_cnt = 0
         collect()
-        after: int = mem_free()
 
     async def led_handler(self) -> None:
         while True:
