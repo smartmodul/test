@@ -22,6 +22,7 @@
     ["inverters/infigy.mpy", "github:smartmodul/test/main/inverters/infigy.mpy"],
     ["inverters/solax.mpy", "github:smartmodul/test/main/inverters/solax.mpy"],
     ["inverters/victron.mpy", "github:smartmodul/test/main/inverters/victron.mpy"],
-    ["inverters/rs485_tcp.mpy", "github:smartmodul/test/main/inverters/rs485_tcp.mpy"]
+    ["inverters/rs485_tcp.mpy", "github:smartmodul/test/main/inverters/rs485_tcp.mpy"],
+    ["inverters/solinteg.mpy", "github:smartmodul/test/main/inverters/solinteg.mpy"]
   ]
 }
