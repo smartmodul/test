@@ -9,6 +9,7 @@
     ["web_server_app.mpy", "github:smartmodul/test/main/web_server_app.mpy"],
     ["uart1.mpy", "github:smartmodul/test/main/uart1.mpy"],
     ["rfid.mpy", "github:smartmodul/test/main/rfid.mpy"],
+    ["internet_connectivity_checker.mpy", "github:smartmodul/test/main/internet_connectivity_checker.mpy"],
     ["template/main_html.mpy", "github:smartmodul/test/main/template/main_html.mpy"],
     ["template/datatable_html.mpy", "github:smartmodul/test/main/template/datatable_html.mpy"],
     ["template/energyChart_html.mpy", "github:smartmodul/test/main/template/energyChart_html.mpy"],
